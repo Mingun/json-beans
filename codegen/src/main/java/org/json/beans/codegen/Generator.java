@@ -125,7 +125,7 @@ public class Generator {
     final JDefinedClass clazz = container._class(
         JMod.PUBLIC,
         inner ? baseClassName + (enums != null ? "Enum" : "Type") : baseClassName,
-        enums != null ? EClassType.ENUM : EClassType.CLASS
+        enums != null ? EClassType.ENUM : EClassType.INTERFACE
     );
 
     // Обходим все пары "название свойства" -> "схема валидации" и генерируем методы доступа.
