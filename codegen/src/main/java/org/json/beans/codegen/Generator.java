@@ -23,7 +23,7 @@
  */
 package org.json.beans.codegen;
 
-import com.helger.jcodemodel.AbstractJType;
+import com.helger.jcodemodel.AbstractJClass;
 import com.helger.jcodemodel.EClassType;
 import com.helger.jcodemodel.IJClassContainer;
 import com.helger.jcodemodel.JClassAlreadyExistsException;
@@ -90,8 +90,8 @@ public class Generator {
    *         схемы, т.к. все имена будут уникальными, а схема валидируется, прежде чем быть переданной
    *         генератору
    */
-  private AbstractJType generateTopLevel(String className, Schema schema) throws JClassAlreadyExistsException {
-    final AbstractJType clazz = generate(model.rootPackage(), className, false, schema);
+  private AbstractJClass generateTopLevel(String className, Schema schema) throws JClassAlreadyExistsException {
+    final AbstractJClass clazz = generate(model.rootPackage(), className, false, schema);
     return clazz;
   }
   /**
@@ -109,7 +109,7 @@ public class Generator {
    *         схемы, т.к. все имена будут уникальными, а схема валидируется, прежде чем быть переданной
    *         генератору
    */
-  private AbstractJType generate(IJClassContainer<JDefinedClass> container, String baseClassName, boolean inner, Schema schema) throws JClassAlreadyExistsException {
+  private AbstractJClass generate(IJClassContainer<JDefinedClass> container, String baseClassName, boolean inner, Schema schema) throws JClassAlreadyExistsException {
     final List<Object> enums = schema.getEnums();
     final Collection<String> types = schema.getExplicitTypes();
     // Если тип не является перечислением и содержит только один элемент, описывающий скаляр,
@@ -132,7 +132,7 @@ public class Generator {
     for (final Map.Entry<String, Schema> e : schema.getProperties().entrySet()) {
       final String prop = e.getKey();
       final Schema s = e.getValue();
-      final AbstractJType cls;
+      final AbstractJClass cls;
       // Если схема объявлена по-месту, то делаем вложенный класс
       if (s.getParent() == schema) {
         cls = generate(clazz, toTitleCase(prop), true, s);
