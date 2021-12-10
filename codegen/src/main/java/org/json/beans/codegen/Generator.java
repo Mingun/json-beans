@@ -24,6 +24,7 @@
 package org.json.beans.codegen;
 
 import com.helger.jcodemodel.AbstractJClass;
+import com.helger.jcodemodel.AbstractJType;
 import com.helger.jcodemodel.EClassType;
 import com.helger.jcodemodel.IJClassContainer;
 import com.helger.jcodemodel.JClassAlreadyExistsException;
@@ -142,7 +143,7 @@ public class Generator {
         cls = generateTopLevel(className(s), s);
       }
 
-      clazz.method(JMod.PUBLIC, cls, getterName(prop));
+      clazz.method(JMod.PUBLIC, cls, resolveCollision(clazz, getterName(prop)));
     }
 
     return clazz;
@@ -306,5 +307,29 @@ public class Generator {
       case "integer": return JsonInteger.class;
     }
     return null;
+  }
+  /**
+   * Возвращает имя для метода без параметров, который еще не объявлен в данном классе. Учитываются
+   * только методы, непосредственно объявленные в классе, унаследованные игнорируются, за исключением
+   * метода {@link #getClass}.
+   *
+   * @param clazz Класс, для которого создается имя
+   * @param baseName Стартовое имя для метода. Если оно уже и так уникально, оно и вернется в качестве
+   *        имени метода
+   *
+   * @return Имя для метода, гаратированно являющееся уникальным в указанном классе
+   */
+  private static String resolveCollision(JDefinedClass clazz, String baseName) {
+    int suffix = 1;
+    String name = baseName;
+    if ("getClass".equals(baseName)) {
+      name = baseName + suffix;
+      ++suffix;
+    }
+    while (clazz.getMethod(name, new AbstractJType[0]) != null) {
+      name = baseName + suffix;
+      ++suffix;
+    }
+    return name;
   }
 }
