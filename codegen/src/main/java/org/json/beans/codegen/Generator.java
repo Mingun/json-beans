@@ -129,24 +129,88 @@ public class Generator {
         enums != null ? EClassType.ENUM : EClassType.INTERFACE
     );
 
+    generateVariant(schema, schema.getOneOf(), clazz);
+    generateVariant(schema, schema.getAnyOf(), clazz);
+
+    // Если значение удовлетворяет всем схемам одновременно, то оно может быть представлено как любой
+    // из типов для этой схемы, и следовательно, можно просто сгенерировать класс, наследующий от
+    // всех схем сразу
+    final Collection<Schema> allOf = schema.getAllOf();
+    if (allOf != null) {
+      int i = 0;
+      for (final Schema s : allOf) {
+        clazz._implements(generate(clazz, schema, s, "Variant" + i++));
+      }
+    }
+
     // Обходим все пары "название свойства" -> "схема валидации" и генерируем методы доступа.
     for (final Map.Entry<String, Schema> e : schema.getProperties().entrySet()) {
       final String prop = e.getKey();
       final Schema s = e.getValue();
-      final AbstractJClass cls;
-      // Если схема объявлена по-месту, то делаем вложенный класс
-      if (s.getParent() == schema) {
-        cls = generate(clazz, toTitleCase(prop), true, s);
-      } else {
-        // Иначе схема объявлена в разделе "$defs" или "definitions" (в зависимости от версии стандарта)
-        // поэтому генерируем ее на верхнем уровне
-        cls = generateTopLevel(className(s), s);
-      }
+      final AbstractJClass cls = generate(clazz, schema, s, toTitleCase(prop));
 
       clazz.method(JMod.PUBLIC, cls, resolveCollision(clazz, getterName(prop)));
     }
 
     return clazz;
+  }
+  /**
+   * Генерирует набор методов получение представления объекта в виде одного из типов, соответствующих
+   * схемам в {@code variants}.
+   *
+   * @param parent Схема, в контексте которой осуществляется генерация
+   * @param variants Коллекция схем, для которых необходиом сгенерировать в классе {@code clazz}
+   *        геттеры вида {@code as<имя>}
+   * @param clazz Класс, в котором генерируются методы
+   *
+   * @throws JClassAlreadyExistsException Такое исключение никогда не должно кидаться для корректной
+   *         схемы, т.к. все имена будут уникальными, а схема валидируется, прежде чем быть переданной
+   *         генератору
+   */
+  private void generateVariant(Schema parent, Collection<Schema> variants, JDefinedClass clazz) throws JClassAlreadyExistsException {
+    if (variants != null) {
+      int i = 0;
+      for (final Schema schema : variants) {
+        // Базовое имя для типа, представляющего безымянную схему, объявленную по месту
+        String name = "Variant" + i++;
+        final AbstractJClass type = generate(clazz, parent, schema, name);
+        // Если схема была объявлена по месту и не является примитивной (такой, как { type: "string" }),
+        // то полученный тип будет объявлен внутри класса и мы будет использовать имя VariantN.
+        // В противном случае используем имя класса
+        if (!clazz.classes().contains(type)) {
+          name = type.name();
+        }
+
+        name = resolveCollision(clazz, "as" + name);
+        clazz.method(JMod.PUBLIC, type, name);
+      }
+    }
+  }
+  /**
+   * Генерирует класс для схемы {@code schema} вложенной в схему {@code parent}. Если схема является
+   * безымянной и не тривиальной, то сгенерированный класс также будет внутри класса {@code container}.
+   *
+   * @param container Класс, в котором генерировать новый класс, если {@code schema} является вложенной
+   *        в {@code parent}
+   * @param parent Схема, в контексте которой осуществляется генерация
+   * @param schema Схема, для которой осуществляется генерация класса
+   * @param baseClassName Базовое имя для вложенного класса. Реальное может быть сформировано путем
+   *        добавление суффикса {@code Type} или {@code Enum}
+   *
+   * @return Созданный класс
+   *
+   * @throws JClassAlreadyExistsException Такое исключение никогда не должно кидаться для корректной
+   *         схемы, т.к. все имена будут уникальными, а схема валидируется, прежде чем быть переданной
+   *         генератору
+   */
+  private AbstractJClass generate(JDefinedClass container, Schema parent, Schema schema, String baseClassName) throws JClassAlreadyExistsException {
+    // Если схема объявлена по-месту, то делаем вложенный класс
+    if (schema.getParent() == parent) {
+      return generate(container, baseClassName, true, schema);
+    }
+    // Иначе схема объявлена в разделе "$defs" или "definitions" (в зависимости от версии стандарта)
+    // поэтому генерируем ее на верхнем уровне
+    return generateTopLevel(className(schema), schema);
   }
 
   /**
